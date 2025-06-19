@@ -19,14 +19,55 @@ app.get('/api/hello', function(req, res) {
   res.json({ greeting: 'hello API' });
 });
 
-app.post('/api/shorturl', express.urlencoded({ extended: false }), function(req, res) {
-  const url = req.body.url;
-  if (!url) {
-    return res.status(400).json({ error: 'URL is required' });
+const urls = [];
+let urlCounter = 1;
+
+function isValidUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+  } catch (error) {
+    return false;
   }
-  // Here you would typically process the URL, e.g., save it to a database
-  // For this example, we'll just return a mock response
-  res.json({ original_url: url, short_url: Math.floor(Math.random() * 1000) });
+}
+
+app.post('/api/shorturl', (req, res) => {
+  const { url } = req.body;
+  if (!isValidUrl(url)) {
+    return res.json({ error: 'invalid url' });
+  }
+  const existingUrl = urls.find(entry => entry.original_url === url);
+  if (existingUrl) {
+    return res.json({
+      original_url: existingUrl.original_url,
+      short_url: existingUrl.short_url
+    });
+  }
+  const shortUrl = urlCounter++;
+  const urlEntry = {
+    original_url: url,
+    short_url: shortUrl
+  };
+  
+  urls.push(urlEntry);
+  
+  res.json({
+    original_url: url,
+    short_url: shortUrl
+  });
+});
+
+app.get('/api/shorturl/:short_url', (req, res) => {
+  const shortUrl = req.params.short_url;
+  const shortUrlId = parseInt(shortUrl);
+  
+  const urlEntry = urls.find(entry => entry.short_url === shortUrlId);
+  
+  if (urlEntry) {
+    res.redirect(urlEntry.original_url);
+  } else {
+    res.json({ error: 'No short URL found for the given input' });
+  }
 });
 
 app.listen(port, function() {
